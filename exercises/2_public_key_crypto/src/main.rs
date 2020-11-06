@@ -349,8 +349,8 @@ fn generate_two_primes(mut rng: &mut rand::prelude::ThreadRng) -> (u32, u32) {
 
     // TODO 1
     
-    let mut p = 0;
-    let mut q = 0;
+    let mut p: u32;
+    let mut q: u32;
 
     // Generally this loop should not execute more than once, but on the
     // off chance that we generate the same prime twice, we loop until
@@ -359,16 +359,18 @@ fn generate_two_primes(mut rng: &mut rand::prelude::ThreadRng) -> (u32, u32) {
 
         // Step 1: Generate two random primes for p and q
         //         Hint: the get_random_prime() function might be useful
+        p = get_random_prime(&mut rng);
+        q = get_random_prime(&mut rng);
         
         // Step 2: Break out of the loop if p and q are distinct (i.e.
         //         not the same)
-        if true {
+        if p != q {
             break;
         }
     }
 
     // Step 3: Return p and q as a tuple
-    (0, 0)
+    (p, q)
 }
 
 
@@ -381,15 +383,15 @@ fn choose_private_exponent(c: u32, rng: &mut rand::prelude::ThreadRng) -> u32 {
 
     // TODO 2
     
-    let mut p = 0;
+    let mut p: u32;
     
     loop {
         // Step 1: Generate a random integer betwen 2 and c
-
+        p = rng.gen_range(2, c);
         
         // Step 2: If the generated integer and c are coprime, break
         //         out of the loop
-        if true {
+        if is_coprime(p, c) {
             break;
         }
     }
@@ -408,7 +410,7 @@ fn compute_public_exponent(e: u32, n: u32) -> u32 {
     // Step 1: Generate and return the multiplicative inverse of e modulo n.
     //         Hint: the mmi() function might be useful here.
     
-    0
+    mmi(e, n)
 }
 
 
@@ -423,23 +425,25 @@ fn generate_key_pair(mut rng: &mut rand::prelude::ThreadRng) -> (u32, u32, u32) 
     
     // Step 1: Choose two distinct prime numbers, p and q.
     //         I recommend you work on TODO 1 before this.
-
+    let (p, q) = generate_two_primes(&mut rng);
 
     // Step 2: Compute m = p * q (will be the modulus)
-
+    let m = p * q;
 
     // Step 3: Compute n = Carmichael's totient function of p, q
     //         Carmichael's Totient is simply lcm(p - 1, q - 1) - I have
     //         included a helper function, carmichael_totient(), for you.
+    let n = carmichael_totient(p, q);
 
     
     // Step 4: Choose some e which is coprime to n and 1 < e < n
     //         I recommend you work on TODO 2 before this.
+    let e = choose_private_exponent(n, &mut rng);
 
     
     // Step 5: Compute the modular multiplicative inverse for d
     //           I recommend you work on TODO 3 before this.
-
+    let d = compute_public_exponent(e, n);
 
     // DEBUG: Perform a sanity check before returning.
     //         Verify that d * e = 1 modulo n.
@@ -452,7 +456,7 @@ fn generate_key_pair(mut rng: &mut rand::prelude::ThreadRng) -> (u32, u32, u32) 
     // 1. Modulus (m)
     // 2. Private Exponent (e)
     // 3. Public Exponent (d)
-    (0, 0, 0)
+    (m, e, d)
 }
 
 
@@ -464,14 +468,16 @@ fn sign_message(msg: String, priv_key_mod: u32, priv_key_exp: u32) -> u32 {
     
     // Step 1: Produce a hash value of the message.  Note that I have
     // included a get_hash() function for you to use.  
+    let hash = get_hash(&msg);
     
     // Step 2: Raise the hash to the power of the private key exponent, modulo the
     // private key modulus (which is, of course, same as the public key modulus).
     // Note that I have included a raise_power_modulo() function.
+    let signature = raise_power_modulo(hash, priv_key_exp, priv_key_mod);
 
     // Step 3: Return the result of the previous operation
     
-    0
+    signature
     
 }
 
@@ -486,15 +492,17 @@ fn verify_signature(msg: String, sig: u32, pub_key_mod: u32, pub_key_exp: u32) -
     
     // Step 1: Get the hash value of the message.
     //         Remember there is a get_hash() function for you to use.
+    let hash = get_hash(&msg);
         
     // Step 2: Raise the signature to the power of pub_key_exp modulo
     //         pub_key_mod.  Remember there is a raise_power_modulo() function
     //         for you to use.
+    let correct_sig = raise_power_modulo(sig, pub_key_exp, pub_key_mod);
 
     // Step 3: Return true if the result of the previous operation is equal to
     // the hash value modulo the public key modulus, false otherwise.
     
-    false
+    correct_sig == hash % pub_key_mod
 }
 
 fn main() {
