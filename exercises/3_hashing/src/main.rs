@@ -125,11 +125,19 @@ fn strengthen(data: Vec<u8>) -> Vec<u8> {
     
     // If the number of characters passed in was evenly divisible by BLOCK_SIZE
     // and was not 0, just return the data that was passed in.
+    let present_characters_number = data.len() % BLOCK_SIZE;
+    if present_characters_number == 0 && data.len() > 0 {
+        data
+    } else {
+        let mut adjusted_data = data;
+        let missing_characters_number = BLOCK_SIZE - present_characters_number;
+        
+        for _ in 0..missing_characters_number {
+            adjusted_data.push(0);
+        }
 
-    // Otherwise, add just enough 0's to the end so that the total length is
-    // evenly divisible by BLOCK_SIZE.
-    vec![12]
-
+        adjusted_data
+    }
 }
 
 /// The twiddle method "twiddles" the bits of the input array `arr` by XORing the
@@ -185,13 +193,22 @@ fn transform(cv: u64, arr: [u8; BLOCK_SIZE]) -> u64 {
     // TODO 3
 
     // XOR the bytes in initial array against the CV's bytes
+    let mut compressed_array: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    let cv_array: [u8; BLOCK_SIZE] = cv.to_le_bytes();
+
+    for j in 0..BLOCK_SIZE {
+        compressed_array[j] = arr[j] ^ cv_array[j];
+    }
 
     // For these new bytes, run the twiddle function on them 1,024 times
+    for _j in 0..1024 {
+        twiddle(&mut compressed_array);
+    }
 
     // Return the twiddled bytes as a single u64 value by interpreting the bytes
     // as a little-endian bytes
     // Note that this is just an arbitrary return value to allow for compilation 
-    12
+    u64::from_le_bytes(compressed_array)
 }
 
 /// The compress function accepts a previous compress value and the data to operate
@@ -203,13 +220,18 @@ fn transform(cv: u64, arr: [u8; BLOCK_SIZE]) -> u64 {
 fn compress(cv: u64, data: Vec<u8>) -> u64 {
 
     // TODO 4
+    let mut m_data = data;
 
     // Convert the vector to an array of u8s of size 8
+    let mut data_array: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+
+    for j in 0..BLOCK_SIZE {
+        data_array[j] = m_data.pop().unwrap();
+    }
 
     // Call transform with cv and data as arguments
-    
-    // Note that this is just an arbitrary return value to allow for compilation 
-    12
+
+    transform(cv, data_array)
 }
 
 /// Given a vector of u8s, split it into a vector of vectors of u8s.
@@ -226,9 +248,24 @@ fn compress(cv: u64, data: Vec<u8>) -> u64 {
 
 fn split(data: Vec<u8>) -> Vec<Vec<u8>> {
     // TODO 2
+    let m_data = strengthen(data);
+    let mut split_data: Vec<Vec<u8>> = Vec::new();
+    let amount_of_blocks: usize = m_data.len() / BLOCK_SIZE;
+    let mut counter = 0;
+
+    for _i in 0..amount_of_blocks {
+        let mut block_data: Vec<u8> = Vec::new();
+
+        for _j in 0..BLOCK_SIZE {
+            block_data.push(m_data[counter]);
+            counter += 1;
+        }
+
+        split_data.push(block_data);
+    }
     
     // Note that this is just an arbitrary return value to allow for compilation 
-    vec![vec![12]]
+    split_data
 }
 
 /// The finalize function will return the bitwise complement of the passed-in value.
@@ -244,7 +281,7 @@ fn finalize(to_finalize: u64) -> u64 {
     // TODO 5
     
     // Note that this is just an arbitrary return value to allow for compilation 
-    12
+    to_finalize ^ 0xFFFF_FFFF_FFFF_FFFF
 }
 
 /// Run the BillHash function on the input string and return the hash value.
@@ -264,18 +301,24 @@ fn bill_hash(to_hash: String) -> u64 {
     // TODO 6
 
     // Convert the blocks into a vector of u8s
+    let to_hash_as_array = convert_string_to_u8s(to_hash);
 
     // Strengthen and split the blocks into BLOCK_SIZE-size blocks
+    let to_hash_as_array_of_blocks = split(to_hash_as_array);
 
     // Set the initialization vector as the initial compress value
+    let mut cv: u64 = INITIALIZATION_VECTOR;
 
     // Loop through the blocks, taking the cv from the previous block
     // as input to the current block
 
+    for block in to_hash_as_array_of_blocks {
+        cv = compress(cv, block);
+    }
+
     // Finalize and return that value as the hash
 
-    // Note that this is just an arbitrary return value to allow for compilation 
-    12
+    finalize(cv)
 }
 
 /// Main function.
