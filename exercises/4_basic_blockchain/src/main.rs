@@ -160,6 +160,9 @@ fn verify_blockchain(blockchain: &Vec<Block>) -> Result<HashMap<Address, Amount>
     // Create a new HashMap<Address, Amount> and expected_prev_hash to store
     // previous hashes to check.
 
+    let mut balances: HashMap<Address, Amount> = HashMap::new();
+    let mut prev_hash: Digest = 0;
+
     // This is a special for loop which will update two variables at each
     // iteration:
     // j - contains an index (i.e., increments from 0,1,2... each iteration)
@@ -176,11 +179,60 @@ fn verify_blockchain(blockchain: &Vec<Block>) -> Result<HashMap<Address, Amount>
         // it is trying to send.  An address with 5 billcoins cannot send 10 to
         // somebody else!
 
+        // if b.from_addr != 0 {
+        //     if !balances.contains_key(&b.from_addr) {
+        //         return Err(format!("{:#016x} address does not exists", b.from_addr))
+        //     }
 
+        //     let account_balance = *balances.get(&b.from_addr).unwrap();
+
+        //     if b.amount <= account_balance {
+        //         return Err(format!("{} tires to spend more that its current balance", b.from_addr));
+        //     }
+        // }
+        if b.from_addr != 0 {
+            let balance_entry = balances.get(&b.from_addr);
+
+            match balance_entry {
+                Some(balance) => {
+                    if &b.amount > balance {
+                        return Err(
+                            format!(
+                                "Line {}: Account {:#016x} only has {} billcoins; it cannot send {}",
+                                j,
+                                b.from_addr,
+                                balance,
+                                b.amount
+                            )
+                        );
+                    }
+                },
+                None => {
+                    return Err(
+                        format!(
+                            "Line {}: Account {:#016x} has 0 billcoins; it cannot send {}",
+                            j,
+                            b.from_addr,
+                            b.amount
+                        )
+                    );
+                }
+            }
+        }
         // TODO 2
 
         // Users can never send any billcoins _TO_ address 0x0 - it is only used as a source.
         // If the to_address is 0, raise an error indicating this.
+
+        if b.to_addr == 0 {
+            return Err(
+                format!(
+                    "Line {}: Account {:#016x} tried to send to address 0x00000000000000",
+                    j,
+                    b.from_addr
+                )
+            );
+        }
         
         // TODO 3
 
@@ -188,10 +240,23 @@ fn verify_blockchain(blockchain: &Vec<Block>) -> Result<HashMap<Address, Amount>
         // The first prev_hash should always be 0x0.
         // If not, return an error
 
+        if b.prev_hash != prev_hash {
+            return Err(
+                format!(
+                    "Line {}: Prev hash was expected to be {:#016x}, not {:#016x}",
+                    j,
+                    prev_hash,
+                    b.prev_hash
+                )
+            );
+        }
+
         // TODO 4
         
         // Store the hash of this block as the expected previous hash for the
         // next block (iteration of the for loop)
+
+        prev_hash = get_hash(&b);
         
         // TODO 5
         
@@ -201,13 +266,23 @@ fn verify_blockchain(blockchain: &Vec<Block>) -> Result<HashMap<Address, Amount>
         // No coins should ever be subtracted from the 0x0 address
         // HINT: You may find .cloned() and .unwrap_or() helpful when dealing
         // with the hashmap!
+        let from_current_balance = balances.get(&b.from_addr).cloned().unwrap_or(0);
+        let to_current_balance = balances.get(&b.to_addr).cloned().unwrap_or(0);
         
+        if b.from_addr != 0 {
+            let from_new_balance = from_current_balance - b.amount;
+            balances.insert(b.from_addr, from_new_balance);
+        }
+
+        let to_new_balance = to_current_balance + b.amount;
+        balances.insert(b.to_addr, to_new_balance);
     }
 
     // TODO 6
     
     // Return hashmap of balances if all is correct
-    Err("derp".to_string())
+    Ok(balances)
+    // Err("derp".to_string())
 
 }
 
